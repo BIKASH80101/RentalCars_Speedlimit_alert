@@ -1,0 +1,91 @@
+package com.example.carSpeedLimit;
+
+import android.os.Bundle;
+import android.util.Log;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.messaging.FirebaseMessaging;
+
+public class MainActivity extends AppCompatActivity implements SpeedMonitor.SpeedListener {
+
+    private static final String TAG = "RentalCarApp";
+    private DatabaseReference alertsRef;
+    private SpeedMonitor speedMonitor;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+       // setContentView(R.layout.activity_main);
+
+        alertsRef = FirebaseDatabase.getInstance().getReference("alerts");
+        speedMonitor = new SpeedMonitor(this);
+
+        FirebaseMessaging.getInstance().subscribeToTopic("rental_company")
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "Subscribed to rental_company topic");
+                    }
+                });
+
+        simulateSpeedUpdates();// using locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+    }
+
+    private void simulateSpeedUpdates() {
+        int[] speeds = {50, 60, 90, 110, 125};
+
+        new Thread(() -> {
+            try {
+                for (int speed : speeds) {
+                    Thread.sleep(3000);
+                    runOnUiThread(() -> speedMonitor.checkSpeed(speed));
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    @Override
+    public void onSpeedExceeded(int speed) {
+        showWarningDialog(speed);
+        sendSpeedAlertToCompany(speed);
+    }
+
+    @Override
+    public void onSpeedNormal(int speed) {
+        // Optional: clear warnings
+    }
+
+    private void showWarningDialog(int speed) {
+        new AlertDialog.Builder(this)
+                .setTitle("Speed Limit Exceeded!")
+                .setMessage("Your speed is " + speed + " km/h, which is over the limit. Please slow down.")
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private void sendSpeedAlertToCompany(int speed) {
+        String alertId = alertsRef.push().getKey();
+        if (alertId != null) {
+            Alert alert = new Alert(alertId, speed, System.currentTimeMillis());
+            alertsRef.child(alertId).setValue(alert);
+            Log.d(TAG, "Alert sent to Firebase DB: speed=" + speed);
+        }
+    }
+
+    public static class Alert {
+        public String id;
+        public int speed;
+        public long timestamp;
+
+        public Alert() { }
+
+        public Alert(String id, int speed, long timestamp) {
+            this.id = id;
+            this.speed = speed;
+            this.timestamp = timestamp;
+        }
+    }
+}

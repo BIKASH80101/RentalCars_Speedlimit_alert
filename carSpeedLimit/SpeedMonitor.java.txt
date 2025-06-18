@@ -1,0 +1,24 @@
+package com.example.carSpeedLimit;
+
+public class SpeedLimit {
+
+    private static final int SPEED_LIMIT = 80; // km/h
+    private SpeedListener listener;
+
+    public interface SpeedListener {
+        void onSpeedExceeded(int speed);
+        void onSpeedNormal(int speed);
+    }
+
+    public SpeedMonitor(SpeedListener listener) {
+        this.listener = listener;
+    }
+
+    public void checkSpeed(int currentSpeed) {
+        if (currentSpeed > SPEED_LIMIT) {
+            listener.onSpeedExceeded(currentSpeed);
+        } else {
+            listener.onSpeedNormal(currentSpeed);
+        }
+    }
+}
